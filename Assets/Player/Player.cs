@@ -24,15 +24,15 @@ public class Player : MonoBehaviour
     public void TurnRed()
     {
         pm.red = true;
-        redSpr.active = true;
-        blueSpr.active = false;
+        redSpr.SetActive(true);
+        blueSpr.SetActive(false);
     }
 
     public void TurnBlue()
     {
         pm.red = false;
-        redSpr.active = false;
-        blueSpr.active = true;
+        redSpr.SetActive(false);
+        blueSpr.SetActive(true);
     }
 
     // Update is called once per frame

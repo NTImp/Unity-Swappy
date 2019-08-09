@@ -43,11 +43,18 @@ public class LevelController : MonoBehaviour
     {
         if (won)
         {
-            if (Input.GetKeyDown(KeyCode.Insert))
+            if (Input.GetKeyDown(KeyCode.Return))
             {
-                GlobalData.Level = (GlobalData.Level + 1) % GlobalData.NumLevels;
+                GlobalData.Level = GlobalData.Level + 1;
+                if (GlobalData.Level >= GlobalData.NumLevels[GlobalData.World])
+                {
+                    GlobalData.Level = 0;
+                    GlobalData.World = (GlobalData.World + 1) % GlobalData.NumWorlds;
+                }
 
-                SceneManager.LoadScene("Scenes/Level " + GlobalData.Level);
+                int l = (GlobalData.World + 1) * 100 + GlobalData.Level;
+
+                SceneManager.LoadScene("Scenes/Level " + l);
             }
         }
 

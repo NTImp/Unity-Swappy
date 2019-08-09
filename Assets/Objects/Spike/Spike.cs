@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Goal : TriggerAction
+public class Spike : TriggerAction
 {
     // Start is called before the first frame update
     new void Start()
@@ -18,6 +18,6 @@ public class Goal : TriggerAction
 
     public override void PlayerTriggered(Player p)
     {
-        lc.CompleteLevel();
+        lc.KillPlayer();
     }
 }

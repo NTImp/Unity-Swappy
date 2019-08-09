@@ -6,9 +6,9 @@ public class Switch : TriggerAction
 {
     public bool Red = true;
     // Start is called before the first frame update
-    void Start()
+    new void Start()
     {
-        
+        base.Start();
     }
 
     // Update is called once per frame
