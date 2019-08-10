@@ -23,6 +23,7 @@ public class LevelController : MonoBehaviour
     void Start()
     {
         Restart();
+        Time.timeScale = 0.125f;
     }
 
     void Restart()

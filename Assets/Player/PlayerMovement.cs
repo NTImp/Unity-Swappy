@@ -9,6 +9,16 @@ public enum PlayerMovingState
 
 public class PlayerMovement : MonoBehaviour
 {
+    //Collisions
+    private const float shellRadious = 0.1f;
+
+    private enum PlayerState
+    {
+        Grounded, Air, Dash
+    }
+
+    private PlayerState ps;
+
     public float MoveX;
     public bool red;
 
@@ -21,9 +31,13 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    //Input
+    private bool jumpPressed = false;
+    private int moveAxis = 0;
+    private int yAxis = 0;
+
     private Rigidbody2D coll;
     private ContactFilter2D cf;
-    private bool onGround = false;
 
     private PlayerMovingState movingState;
 
@@ -33,8 +47,12 @@ public class PlayerMovement : MonoBehaviour
     private float timeJump = 0.4f, heightJump = 3.5f;
     private float gravity, jump;
     private float vy = 0;
-    private bool jumpPressed = false;
-    private int moveAxis = 0;
+
+    //Dash movement
+    private float dashCounter = 0.0f;
+    private const float dashTime = 0.25f;
+    private int dashX, dashY;
+    private const float dashSpeed = 16.0f;
 
     private HashSet<Collider2D> ignoreColliders;
     // Start is called before the first frame update
@@ -50,6 +68,8 @@ public class PlayerMovement : MonoBehaviour
         gravity = 2 * jump / timeJump;
 
         triggered = new Collider2D[4];
+
+        ps = PlayerState.Grounded;
 
         triggers = new ContactFilter2D();
         triggers.NoFilter();
@@ -75,10 +95,13 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetKey(KeyCode.LeftArrow)) moveAxis = -1;
         else if (Input.GetKey(KeyCode.RightArrow)) moveAxis = 1;
 
+        if (Input.GetKey(KeyCode.UpArrow)) yAxis = 1;
+        else if (Input.GetKey(KeyCode.DownArrow)) yAxis = -1;
+
         if (moveAxis > 0) FacingRight = true;
         else if (moveAxis < 0) FacingRight = false;
 
-        if (Input.GetKeyDown(KeyCode.UpArrow))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             jumpPressed = true;
         }
@@ -89,24 +112,46 @@ public class PlayerMovement : MonoBehaviour
     {
         if (Active)
         {
-            Movement();
+            switch (ps)
+            {
+                case PlayerState.Grounded:
+                    GroundedMovement();
+                    break;
+                case PlayerState.Air:
+                    AirMovement();
+                    break;
+                case PlayerState.Dash:
+                    DashMovement();
+                    break;
+            }
+
+            int r = coll.OverlapCollider(triggers, triggered);
+            for (int i = 0; i < r; i++)
+            {
+                TriggerAction s = triggered[i].gameObject.GetComponent<TriggerAction>();
+                if (s)
+                {
+                    s.PlayerTriggered(this.gameObject.GetComponent<Player>());
+                }
+
+            }
+
+            moveAxis = 0;
+            yAxis = 0;
+            jumpPressed = false;
         }
     }
 
-    void MovementAnimation()
-    {
-        if (!onGround) movingState = PlayerMovingState.Jumping;
-        else if (moveAxis != 0) movingState = PlayerMovingState.Moving;
-        else movingState = PlayerMovingState.Iddle;
-    }
-
-    void Movement()
+    void AirMovement()
     {
         float vx = MoveX * moveAxis;
 
-        if (jumpPressed && onGround)
+        if (jumpPressed && (moveAxis != 0 || yAxis != 0))
         {
-            vy = jump;
+            dashCounter = dashTime;
+            ps = PlayerState.Dash;
+            dashX = moveAxis;
+            dashY = yAxis;
         }
 
         vy -= gravity * Time.fixedDeltaTime;
@@ -115,27 +160,68 @@ public class PlayerMovement : MonoBehaviour
 
         bool c = MoveY(vy * Time.fixedDeltaTime);
         MovX(vx * Time.fixedDeltaTime);
-        onGround = false;
         if (c && vy < 0)
         {
-            onGround = true;
+            ps = PlayerState.Grounded;
         }
+    }
 
-        int r = coll.OverlapCollider(triggers, triggered);
-        for (int i = 0; i < r; i++)
+    void DashMovement()
+    {
+        if (dashCounter < 0)
         {
-            TriggerAction s = triggered[i].gameObject.GetComponent<TriggerAction>();
-            if (s)
+            ps = PlayerState.Grounded;
+        } else
+        {
+            dashCounter -= Time.fixedDeltaTime;
+
+            Vector2 m = new Vector2(dashX, dashY).normalized * dashSpeed;
+
+            bool hit = MovX(m.x * Time.fixedDeltaTime);
+
+            if (hit && dashY == 0)
             {
-                s.PlayerTriggered(this.gameObject.GetComponent<Player>());
+                vy = 0;
+                ps = PlayerState.Air;
             }
 
+            hit = MoveY(m.y * Time.fixedDeltaTime);
+            if (hit)
+            {
+                if (m.y > 0 && dashX == 0)
+                {
+                    ps = PlayerState.Air;
+                    vy = dashSpeed;
+                }
+                else if (dashX == 0)
+                {
+                    ps = PlayerState.Grounded;
+                }
+            }
+        }
+    }
+
+    void GroundedMovement()
+    {
+        float vx = MoveX * moveAxis;
+
+        if (jumpPressed)
+        {
+            vy = jump;
+            ps = PlayerState.Air;
+        } else
+        {
+            vy = -14;
         }
 
-        MovementAnimation();
+        bool c = MoveY(vy * Time.fixedDeltaTime);
+        MovX(vx * Time.fixedDeltaTime);
+        if (!c)
+        {
+            ps = PlayerState.Air;
+        }
 
-        moveAxis = 0;
-        jumpPressed = false;
+        movingState = PlayerMovingState.Jumping;
     }
 
     bool MovX(float delta)
@@ -143,7 +229,7 @@ public class PlayerMovement : MonoBehaviour
         SetMask(false);
 
         bool ret = false;
-        float shellDIst = 0.05f;
+        float shellDIst = shellRadious;
         ignoreColliders.Clear();
 
         Collider2D[] ov = new Collider2D[4];
@@ -192,7 +278,7 @@ public class PlayerMovement : MonoBehaviour
     {
         SetMask(delta < 0);
         bool ret = false;
-        float shellDIst = 0.05f;
+        float shellDIst = shellRadious;
         ignoreColliders.Clear();
 
         Collider2D[] ov = new Collider2D[4];
